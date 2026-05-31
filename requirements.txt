@@ -1,2 +1,2 @@
-twikit>=2.0.0
+twikit==2.2.2
 python-dotenv>=1.0.0
