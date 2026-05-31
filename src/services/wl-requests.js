@@ -32,20 +32,69 @@ export function normalizeTweetUrl(url) {
   }
 }
 
-export function buildWlRequestEmbed({ user, tweetUrl, upvotes, downvotes }) {
+function extractUsernameFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/^\/+/, "").split("/");
+    if (path.length >= 1) return path[0];
+  } catch {}
+  return null;
+}
+
+async function fetchXProfile(username) {
+  const input = username.trim().replace(/^@/, "");
+  if (!input) return null;
+  try {
+    const res = await fetch(
+      `https://api.fxtwitter.com/${encodeURIComponent(input)}`,
+      { headers: { "User-Agent": "KovariBot/1.0" } },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.code !== 200 || !data.user) return null;
+    const u = data.user;
+    return {
+      username: u.screen_name || input,
+      displayName: u.name || input,
+      description: u.description || "",
+      followers: u.followers_count ?? 0,
+      following: u.friends_count ?? 0,
+      image: u.profile_image_url_https || null,
+      banner: u.profile_banner_url || null,
+      verified: u.verified || false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function buildWlRequestEmbed({ user, tweetUrl, upvotes, downvotes, profile }) {
+  const lines = [
+    `**Requester:** ${user}`,
+    `**Link:** [Open on X](${tweetUrl})`,
+    "",
+    `👍 **${upvotes}** · 👎 **${downvotes}**`,
+  ];
+
   const embed = new EmbedBuilder()
     .setColor(0x1d9bf0)
-    .setTitle("🎫 WL Request")
-    .setDescription(
-      [
-        `**Requester:** ${user}`,
-        `**Project:** [Open on X](${tweetUrl})`,
-        "",
-        `👍 **${upvotes}** · 👎 **${downvotes}**`,
-      ].join("\n"),
-    )
+    .setTitle(profile ? `🎫 WL Request — ${profile.displayName}` : "🎫 WL Request")
+    .setDescription(lines.join("\n"))
     .setFooter({ text: "Vote below — majority decides" })
     .setTimestamp();
+
+  if (profile) {
+    if (profile.image) embed.setThumbnail(profile.image.replace("_normal", "_400x400"));
+    if (profile.banner) embed.setImage(profile.banner);
+    embed.addFields(
+      { name: "Handle", value: `@${profile.username}`, inline: true },
+      { name: "Followers", value: String(profile.followers).replace(/\B(?=(\d{3})+(?!\d))/g, ","), inline: true },
+    );
+    if (profile.description) {
+      embed.addFields({ name: "Bio", value: profile.description.slice(0, 300) });
+    }
+  }
+
   return embed;
 }
 
@@ -100,12 +149,16 @@ export async function handleWlRequest(message) {
     await message.delete();
   } catch {}
 
+  const username = extractUsernameFromUrl(tweetUrl);
+  const profile = username ? await fetchXProfile(username) : null;
+
   const counts = getWlVoteCounts(tweetUrl);
   const embed = buildWlRequestEmbed({
     user: message.author.toString(),
     tweetUrl,
     upvotes: counts.up,
     downvotes: counts.down,
+    profile,
   });
   const components = buildWlRequestComponents(tweetUrl);
 
@@ -136,12 +189,16 @@ export async function handleWlVote(interaction) {
   const updated = addWlVote(tweetUrl, interaction.user.id, type);
   const counts = getWlVoteCounts(tweetUrl);
 
-  // Update embed
+  // Re-fetch profile to keep embed fresh
+  const username = extractUsernameFromUrl(tweetUrl);
+  const profile = username ? await fetchXProfile(username) : null;
+
   const embed = buildWlRequestEmbed({
     user: `<@${updated.userId}>`,
     tweetUrl,
     upvotes: counts.up,
     downvotes: counts.down,
+    profile,
   });
   const components = buildWlRequestComponents(tweetUrl);
 
