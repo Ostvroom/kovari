@@ -143,15 +143,20 @@ export async function execute(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
       const member = await interaction.guild.members.fetch(user.id);
-      const { code, dmOk } = await giveWaitingRoomCode(member, { customCode, dm });
+      const { code, dmOk, dmError } = await giveWaitingRoomCode(member, { customCode, dm });
       const lines = [
         `**Code for ${user}** (only they can use it, once):`,
         `\`${code}\``,
         "",
-        dmOk
-          ? "_Also sent to their DMs._"
-          : "_Copy and send this to them (ticket, DM, etc.)._",
       ];
+      if (dmOk) {
+        lines.push("_Also sent to their DMs._");
+      } else if (dm && dmError) {
+        lines.push(`_⚠️ Could not DM: ${dmError}_`);
+        lines.push("_Copy and send this to them manually._");
+      } else {
+        lines.push("_Copy and send this to them (ticket, DM, etc.)._");
+      }
       await interaction.editReply({ content: lines.join("\n") });
     } catch (err) {
       await interaction.editReply({ content: err.message });

@@ -97,7 +97,7 @@ function waitingRoomChannelHint() {
     : "the waiting room channel";
 }
 
-/** DM personal access code; returns whether DM succeeded. */
+/** DM personal access code; returns {ok, error?}. */
 export async function sendPersonalAccessCodeDm(member, code) {
   const hint = waitingRoomChannelHint();
   try {
@@ -111,9 +111,9 @@ export async function sendPersonalAccessCodeDm(member, code) {
         "_This code works once and only for your account._",
       ].join("\n"),
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 }
 
@@ -138,8 +138,10 @@ export async function giveWaitingRoomCode(member, { customCode, dm = false } = {
   }
 
   const code = issueWaitingRoomCode(member.id, customCode);
-  const dmOk = dm ? await sendPersonalAccessCodeDm(member, code) : false;
-  return { code, dmOk };
+  if (!dm) return { code, dmOk: false, dmError: null };
+
+  const result = await sendPersonalAccessCodeDm(member, code);
+  return { code, dmOk: result.ok, dmError: result.error ?? null };
 }
 
 export async function promoteWaitingMembersToVerified(guild) {
