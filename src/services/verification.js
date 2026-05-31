@@ -1,4 +1,4 @@
-import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import { EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
 import { config } from "../config.js";
 import { loadSettings, patchVerification } from "./settings.js";
 import {
@@ -79,6 +79,40 @@ async function stripGateRoles(member) {
   }
 }
 
+async function sendVerifiedWelcome(member) {
+  if (!config.verifiedWelcomeChannelId) return;
+  const channel = await member.guild.channels
+    .fetch(config.verifiedWelcomeChannelId)
+    .catch(() => null);
+  if (!channel?.isTextBased?.()) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xfee75c)
+    .setAuthor({
+      name: member.guild.name,
+      iconURL: member.guild.iconURL({ size: 64 }) ?? undefined,
+    })
+    .setTitle("🎉 Welcome to Kovari")
+    .setDescription(
+      [
+        `${member} — you made it past the gate.`,
+        "",
+        "**Full access granted.**",
+        "",
+        "This is where real alpha lives. Time to build, trade, and win.",
+      ].join("\n"),
+    )
+    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+    .setFooter({ text: `Member #${member.guild.memberCount}` })
+    .setTimestamp();
+
+  try {
+    await channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.warn("[kovari] verified welcome failed:", err.message);
+  }
+}
+
 export async function grantVerified(member) {
   await assertBotCanManageRole(member, config.verifiedRoleId, "verified");
 
@@ -89,6 +123,7 @@ export async function grantVerified(member) {
 
   clearWaitingRoomCode(member.id);
   await member.roles.add(config.verifiedRoleId);
+  await sendVerifiedWelcome(member);
 }
 
 function waitingRoomChannelHint() {

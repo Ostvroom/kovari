@@ -20,6 +20,7 @@ export const config = {
   token: required("DISCORD_TOKEN"),
   guildId: process.env.GUILD_ID?.trim() || null,
   welcomeChannelId: process.env.WELCOME_CHANNEL_ID || null,
+  verifiedWelcomeChannelId: process.env.VERIFIED_WELCOME_CHANNEL_ID?.trim() || null,
   welcomeBannerUrl: process.env.WELCOME_BANNER_URL?.trim() || null,
   verificationBannerUrl: process.env.VERIFICATION_BANNER_URL?.trim() || null,
   welcomeMessage:
