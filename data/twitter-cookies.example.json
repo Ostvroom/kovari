@@ -1,0 +1,5 @@
+[
+  { "name": "auth_token", "value": "paste_from_browser_export" },
+  { "name": "ct0", "value": "paste_csrf_token" },
+  { "name": "guest_id", "value": "optional" }
+]

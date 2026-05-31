@@ -1,0 +1,16 @@
+node_modules/
+.env
+data/settings.json
+data/waiting-codes.json
+data/link-protection.json
+data/role-claims.json
+data/official-links.json
+data/x-accounts.json
+data/raids.json
+data/tickets.json
+data/points.json
+data/twitter-cookies.json
+twitter-cookies.json
+cookies.json
+*.log
+.DS_Store

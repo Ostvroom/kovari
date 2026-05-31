@@ -1,0 +1,20 @@
+# Render Blueprint — Kovari Discord bot (Background Worker)
+# Docs: https://render.com/docs/deploy-node-express-app (worker uses same build/start pattern)
+services:
+  - type: worker
+    name: kovari-bot
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && pip3 install -r requirements.txt
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PYTHON_PATH
+        value: python3
+      # Add the rest in the Render dashboard (Environment → Secret Files / env vars):
+      # DISCORD_TOKEN, GUILD_ID, role IDs, channel IDs, TWITTER_COOKIES, etc.
+    disk:
+      name: kovari-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
