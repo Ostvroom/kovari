@@ -83,15 +83,21 @@ async def apply_login(client: Client) -> bool:
     loop = asyncio.get_event_loop()
     cookies = load_cookie_dict()
     if cookies:
+        print(f"[x-debug] cookies loaded: {list(cookies.keys())}", file=sys.stderr)
         if hasattr(client, "set_cookies"):
             fn = client.set_cookies
-            if asyncio.iscoroutinefunction(fn):
-                await fn(cookies)
-            else:
-                await loop.run_in_executor(None, fn, cookies)
-            return True
+            try:
+                if asyncio.iscoroutinefunction(fn):
+                    await fn(cookies)
+                else:
+                    await loop.run_in_executor(None, fn, cookies)
+                print("[x-debug] set_cookies succeeded", file=sys.stderr)
+                return True
+            except Exception as e:
+                print(f"[x-debug] set_cookies failed: {e}", file=sys.stderr)
         if hasattr(client, "session") and hasattr(client.session, "cookies"):
             client.session.cookies.update(cookies)
+            print("[x-debug] session cookies updated", file=sys.stderr)
             return True
 
     email = os.getenv("TWITTER_EMAIL", "")
@@ -131,15 +137,15 @@ async def fetch_tweet(client: Client, tweet_id: str):
             batch = await call_method(client.get_tweets_by_ids, [target_tid])
             if batch:
                 return batch[0]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[x-debug] get_tweets_by_ids failed: {e}", file=sys.stderr)
     if hasattr(client, "get_tweet_by_id"):
         try:
             t = await call_method(client.get_tweet_by_id, target_tid)
             if t:
                 return t
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[x-debug] get_tweet_by_id failed: {e}", file=sys.stderr)
     return None
 
 
@@ -161,16 +167,16 @@ async def fetch_user(client: Client, username: str, user_id: str | None):
                 u = await call_method(client.get_user_by_screen_name, name)
                 if u:
                     return u
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[x-debug] get_user_by_screen_name({name}) failed: {e}", file=sys.stderr)
 
     if user_id and hasattr(client, "get_user_by_id"):
         try:
             u = await call_method(client.get_user_by_id, str(user_id))
             if u:
                 return u
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[x-debug] get_user_by_id({user_id}) failed: {e}", file=sys.stderr)
     return None
 
 
