@@ -15,29 +15,14 @@ if not os.getenv("TWITTER_COOKIES") and not os.getenv("TWITTER_EMAIL"):
     except ImportError:
         pass
 
-# Patch twikit's broken ClientTransaction before importing anything else
-def _patch_twikit():
-    try:
-        import twikit.client_transaction as ct
-        import base64, os
-
-        # Replace generate with a fake transaction ID so requests don't crash
-        def patched_generate(self, *args, **kwargs):
-            try:
-                # Try real generate first
-                if hasattr(self, "key") and self.key:
-                    return self._generate(*args, **kwargs)
-            except Exception:
-                pass
-            # Fallback: fake transaction ID
-            return base64.b64encode(os.urandom(16)).decode()
-
-        ct.ClientTransaction.generate = patched_generate
-        print("[x-debug] ClientTransaction.generate patched", file=sys.stderr)
-    except Exception as e:
-        print(f"[x-debug] patch failed: {e}", file=sys.stderr)
-
-_patch_twikit()
+# Apply v3 project's twikit patches BEFORE importing twikit
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import patch_twikit
+    patch_twikit.apply_patch()
+except Exception as e:
+    print(f"[x-debug] patch_twikit failed: {e}", file=sys.stderr)
 
 try:
     from twikit import Client

@@ -1,3 +1,3 @@
-twikit==2.2.2
+twikit>=2.3.3
+httpx-curl-cffi>=0.1.5
 python-dotenv>=1.0.0
-js2py
