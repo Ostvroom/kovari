@@ -17,6 +17,18 @@ const TWITTER_HOSTS = new Set([
   "www.x.com",
 ]);
 
+const GIF_HOSTS = new Set([
+  "tenor.com",
+  "giphy.com",
+  "media.giphy.com",
+  "media.tenor.com",
+  "c.tenor.com",
+  "media.discordapp.net",
+  "cdn.discordapp.com",
+  "images-ext-1.discordapp.net",
+  "images-ext-2.discordapp.net",
+]);
+
 export function canBypassLinks(member) {
   if (!member) return false;
   if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
@@ -44,6 +56,13 @@ function isTwitterUrl(rawUrl) {
   if (!host) return false;
   if (TWITTER_HOSTS.has(host)) return true;
   return host.endsWith(".twitter.com") || host.endsWith(".x.com");
+}
+
+function isGifUrl(rawUrl) {
+  const host = normalizeHost(rawUrl);
+  if (!host) return false;
+  if (GIF_HOSTS.has(host)) return true;
+  return host.endsWith(".tenor.com") || host.endsWith(".giphy.com");
 }
 
 function isDiscordInvite(raw) {
@@ -90,6 +109,11 @@ function linkAllowedForLevel(link, level) {
 
   if (isDangerous(raw)) {
     return { allowed: false, reason: "blocked unsafe link type" };
+  }
+
+  // GIFs are always allowed
+  if (kind === "http" && isGifUrl(raw)) {
+    return { allowed: true };
   }
 
   if (level === "full") {
