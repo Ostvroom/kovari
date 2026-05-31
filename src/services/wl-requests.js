@@ -57,10 +57,10 @@ async function fetchXProfile(username) {
       username: u.screen_name || input,
       displayName: u.name || input,
       description: u.description || "",
-      followers: u.followers_count ?? 0,
-      following: u.friends_count ?? 0,
-      image: u.profile_image_url_https || null,
-      banner: u.profile_banner_url || null,
+      followers: u.followers ?? u.followers_count ?? 0,
+      following: u.following ?? u.friends_count ?? 0,
+      image: u.avatar ?? u.profile_image_url_https ?? u.profile_image_url ?? null,
+      banner: u.banner ?? u.profile_banner_url ?? null,
       verified: u.verified || false,
     };
   } catch {
@@ -103,12 +103,12 @@ export function buildWlRequestComponents(tweetUrl) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`kovari:wl:up:${encoded}`)
-      .setLabel("👍 Upvote")
+      .setLabel("🔥 Strongly want it")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`kovari:wl:down:${encoded}`)
-      .setLabel("👎 Downvote")
-      .setStyle(ButtonStyle.Danger),
+      .setLabel("⭐ Good")
+      .setStyle(ButtonStyle.Primary),
   );
 }
 
