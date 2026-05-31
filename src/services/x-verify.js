@@ -36,7 +36,9 @@ function runPythonVerify(username, tweetId, userId) {
       stdout += d.toString();
     });
     child.stderr.on("data", (d) => {
-      stderr += d.toString();
+      const text = d.toString();
+      stderr += text;
+      console.error("[x-verify-py]", text.trim());
     });
 
     child.on("close", (code) => {
