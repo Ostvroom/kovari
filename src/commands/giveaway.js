@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { config } from "../config.js";
 import { EPHEMERAL } from "../lib/ephemeral.js";
 import { resolveOptionalImage } from "../lib/image-url.js";
@@ -14,6 +14,7 @@ import { logGiveawayStarted } from "../services/bot-log.js";
 export const data = new SlashCommandBuilder()
   .setName("giveaway")
   .setDescription("Point-entry giveaways & raffles")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((sub) =>
     sub
       .setName("start")
