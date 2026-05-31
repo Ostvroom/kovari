@@ -19,17 +19,24 @@ if not os.getenv("TWITTER_COOKIES") and not os.getenv("TWITTER_EMAIL"):
 def _patch_twikit():
     try:
         import twikit.client_transaction as ct
-        orig_init = ct.ClientTransaction.__init__
-        def patched_init(self, *args, **kwargs):
+        import base64, os
+
+        # Replace generate with a fake transaction ID so requests don't crash
+        def patched_generate(self, *args, **kwargs):
             try:
-                orig_init(self, *args, **kwargs)
+                # Try real generate first
+                if hasattr(self, "key") and self.key:
+                    return self._generate(*args, **kwargs)
             except Exception:
-                self.key = b"\x00" * 16
-                self.key_bytes = list(self.key)
-                self.kt = [0] * 4
-        ct.ClientTransaction.__init__ = patched_init
-    except Exception:
-        pass
+                pass
+            # Fallback: fake transaction ID
+            return base64.b64encode(os.urandom(16)).decode()
+
+        ct.ClientTransaction.generate = patched_generate
+        print("[x-debug] ClientTransaction.generate patched", file=sys.stderr)
+    except Exception as e:
+        print(f"[x-debug] patch failed: {e}", file=sys.stderr)
+
 _patch_twikit()
 
 try:
