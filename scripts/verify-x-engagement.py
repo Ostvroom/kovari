@@ -15,6 +15,23 @@ if not os.getenv("TWITTER_COOKIES") and not os.getenv("TWITTER_EMAIL"):
     except ImportError:
         pass
 
+# Patch twikit's broken ClientTransaction before importing anything else
+def _patch_twikit():
+    try:
+        import twikit.client_transaction as ct
+        orig_init = ct.ClientTransaction.__init__
+        def patched_init(self, *args, **kwargs):
+            try:
+                orig_init(self, *args, **kwargs)
+            except Exception:
+                self.key = b"\x00" * 16
+                self.key_bytes = list(self.key)
+                self.kt = [0] * 4
+        ct.ClientTransaction.__init__ = patched_init
+    except Exception:
+        pass
+_patch_twikit()
+
 try:
     from twikit import Client
     from twikit.tweet import tweet_from_data
