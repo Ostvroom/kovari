@@ -12,7 +12,14 @@ function resolveBannerUrl(guild) {
   );
 }
 
+function isMainGuild(guildId) {
+  if (!config.guildId) return true;
+  return guildId === config.guildId;
+}
+
 export async function execute(member) {
+  if (!isMainGuild(member.guild.id)) return;
+
   try {
     await applyWaitingState(member);
   } catch (err) {
