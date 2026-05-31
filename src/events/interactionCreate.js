@@ -9,6 +9,7 @@ import { EPHEMERAL } from "../lib/ephemeral.js";
 import { handleRaidInteraction } from "./handlers/raid-buttons.js";
 import { handleTicketInteraction } from "./handlers/ticket-buttons.js";
 import { handlePointsInteraction } from "./handlers/points-buttons.js";
+import { handleWlVote } from "../services/wl-requests.js";
 import { toggleClaimRole } from "../services/role-claims.js";
 import {
   assertVerificationConfigured,
@@ -50,6 +51,7 @@ export async function execute(interaction) {
   if (await handleRaidInteraction(interaction)) return;
   if (await handleTicketInteraction(interaction)) return;
   if (await handlePointsInteraction(interaction)) return;
+  if (await handleWlVote(interaction)) return;
 
   if (interaction.isButton() && interaction.customId === "kovari:faq") {
     await interaction.reply({

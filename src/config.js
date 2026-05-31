@@ -50,6 +50,7 @@ export const config = {
     (process.env.AUTO_ENSURE_PANELS ?? "true").toLowerCase() !== "false",
   roleClaimChannelId: process.env.ROLE_CLAIM_CHANNEL_ID?.trim() || null,
   roleClaimBannerUrl: process.env.ROLE_CLAIM_BANNER_URL?.trim() || null,
+  wlRequestChannelId: process.env.WL_REQUEST_CHANNEL_ID?.trim() || null,
   officialLinksChannelId: process.env.OFFICIAL_LINKS_CHANNEL_ID?.trim() || null,
   officialXUrl: process.env.OFFICIAL_X_URL?.trim() || "https://x.com/Kovarixyz",
   officialLinksBannerUrl: process.env.OFFICIAL_LINKS_BANNER_URL?.trim() || null,
