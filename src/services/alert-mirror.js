@@ -5,12 +5,23 @@ const KOVARI_ALERT_COLOR = 0xfee75c;
 const seenSourceMessages = new Set();
 const SEEN_MAX = 500;
 
+// Batching: combine alerts for the same collection within a window
+const BATCH_WINDOW_MS = 15_000;
+const BATCH_MAX_SIZE = 10;
+const pendingBatches = new Map();
+
 function rememberSourceMessage(id) {
   seenSourceMessages.add(id);
   if (seenSourceMessages.size > SEEN_MAX) {
     const first = seenSourceMessages.values().next().value;
     seenSourceMessages.delete(first);
   }
+}
+
+function getCollectionKey(embed) {
+  const title = embed.data.title || "";
+  // "Lobster #2322" -> "lobster"
+  return title.replace(/\s*#\d+.*$/, "").trim().toLowerCase();
 }
 
 function cleanDescription(text) {
@@ -31,9 +42,17 @@ function cleanDescription(text) {
 function isGasOrProgressField(field) {
   const name = field.name?.toLowerCase() || "";
   const value = field.value || "";
-  if (/gas|fee|progress|minted|supply|progress bar/.test(name)) return true;
+
+  // Strip exact gas/fee/gwei field names only
+  if (/^\s*(gas|fee|gwei)\s*$/.test(name)) return true;
+
+  // Strip progress bars in values (e.g., "████░░░░ 45%" or "5,234 / 10,000 ████████░░ 45%")
   if (/[\d\s,]+\/[\d\s,]+.*[█░▓▒]/.test(value) && /%/.test(value)) return true;
+  if (/^\s*[█░▓▒\s]+\s*\d+%?\s*$/.test(value)) return true;
+
+  // Strip currency lines with emojis
   if (/^[💰🧮⛽🪙]/.test(value) && /[Ξ$]/.test(value)) return true;
+
   return false;
 }
 
@@ -62,30 +81,14 @@ export function rebrandEmbed(sourceEmbed, guild) {
 
   embed.setFooter({
     text: "Kovari Alerts",
-    iconURL: guild.iconURL({ size: 32 }) ?? undefined,
+    iconURL: guild?.iconURL({ size: 32 }) ?? undefined,
   });
   embed.setTimestamp(sourceEmbed.data.timestamp ? new Date(sourceEmbed.data.timestamp) : new Date());
 
   return embed;
 }
 
-/**
- * Easiest mirror: other bot posts in a private channel → Kovari reposts rebranded embed in public channel.
- * No extra API calls — only reads Discord.
- */
-export async function tryMirrorAlert(message) {
-  if (!config.alertMirrorEnabled) return;
-  if (!config.alertMirrorPairs.length) return;
-  if (message.author.id === message.client.user.id) return;
-  if (seenSourceMessages.has(message.id)) return;
-
-  const pair = config.alertMirrorPairs.find((p) => p.source === message.channel.id);
-  if (!pair) return;
-
-  const watchBots = config.alertMirrorBotIds;
-  if (watchBots.length && !watchBots.includes(message.author.id)) return;
-  if (!message.embeds.length) return;
-
+async function sendSingleAlert(message, guild, pair) {
   const target = await message.client.channels
     .fetch(pair.target)
     .catch(() => null);
@@ -94,8 +97,7 @@ export async function tryMirrorAlert(message) {
     return;
   }
 
-  const guild = target.guild ?? message.guild;
-  const embeds = message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, guild));
+  const embeds = message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, target.guild ?? message.guild));
   const content = message.content?.trim() || null;
   const pingRoleId = pair.roleId || config.alertMirrorPingRoleId || null;
   const ping = pingRoleId ? `<@&${pingRoleId}>` : null;
@@ -112,4 +114,105 @@ export async function tryMirrorAlert(message) {
   } catch (err) {
     console.error("[kovari] alert mirror failed:", err.message);
   }
+}
+
+async function flushBatch(batchKey) {
+  const batch = pendingBatches.get(batchKey);
+  if (!batch) return;
+  pendingBatches.delete(batchKey);
+
+  const { messages, pair } = batch;
+  if (messages.length === 0) return;
+
+  const target = await messages[0].message.client.channels
+    .fetch(pair.target)
+    .catch(() => null);
+  if (!target?.isTextBased()) {
+    console.warn("[kovari] batch flush: target channel not found", pair);
+    return;
+  }
+
+  const guild = target.guild ?? messages[0].message.guild;
+  const pingRoleId = pair.roleId || config.alertMirrorPingRoleId || null;
+  const ping = pingRoleId ? `<@&${pingRoleId}>` : null;
+
+  // Single alert: send normally
+  if (messages.length === 1) {
+    const { message } = messages[0];
+    const embeds = message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, guild));
+    const content = message.content?.trim() || null;
+    try {
+      await target.send({
+        content: [ping, content].filter(Boolean).join("\n") || undefined,
+        embeds,
+        allowedMentions: pingRoleId ? { roles: [pingRoleId] } : { parse: [] },
+      });
+      rememberSourceMessage(message.id);
+    } catch (err) {
+      console.error("[kovari] alert mirror failed:", err.message);
+    }
+    return;
+  }
+
+  // Multiple alerts: combine into one message with up to 10 embeds
+  const allEmbeds = messages
+    .slice(0, BATCH_MAX_SIZE)
+    .flatMap(({ message }) => message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, guild)))
+    .slice(0, 10);
+
+  const collectionName = getCollectionKey(messages[0].message.embeds[0]);
+  const header = `**${messages.length} ${collectionName} alerts** — combined`;
+
+  try {
+    await target.send({
+      content: [ping, header].filter(Boolean).join("\n") || undefined,
+      embeds: allEmbeds,
+      allowedMentions: pingRoleId ? { roles: [pingRoleId] } : { parse: [] },
+    });
+    for (const { message } of messages) {
+      rememberSourceMessage(message.id);
+    }
+  } catch (err) {
+    console.error("[kovari] batch alert mirror failed:", err.message);
+  }
+}
+
+function queueBatch(pair, batchKey, message) {
+  const existing = pendingBatches.get(batchKey);
+  if (existing) {
+    existing.messages.push({ message });
+    clearTimeout(existing.timeout);
+    existing.timeout = setTimeout(() => flushBatch(batchKey), BATCH_WINDOW_MS);
+    return;
+  }
+
+  const batch = {
+    messages: [{ message }],
+    pair,
+    timeout: setTimeout(() => flushBatch(batchKey), BATCH_WINDOW_MS),
+  };
+  pendingBatches.set(batchKey, batch);
+}
+
+/**
+ * Easiest mirror: other bot posts in a private channel → Kovari reposts rebranded embed in public channel.
+ * Alerts for the same collection within 15s are batched into one message.
+ */
+export async function tryMirrorAlert(message) {
+  if (!config.alertMirrorEnabled) return;
+  if (!config.alertMirrorPairs.length) return;
+  if (message.author.id === message.client.user.id) return;
+  if (seenSourceMessages.has(message.id)) return;
+
+  const pair = config.alertMirrorPairs.find((p) => p.source === message.channel.id);
+  if (!pair) return;
+
+  const watchBots = config.alertMirrorBotIds;
+  if (watchBots.length && !watchBots.includes(message.author.id)) return;
+  if (!message.embeds.length) return;
+
+  const collectionKey = getCollectionKey(message.embeds[0]);
+  const batchKey = `${pair.source}:${pair.target}:${collectionKey}`;
+
+  queueBatch(pair, batchKey, message);
 }
