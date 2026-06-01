@@ -124,6 +124,11 @@ async function flushBatch(batchKey) {
   const { messages, pair } = batch;
   if (messages.length === 0) return;
 
+  console.log(`[kovari] flushBatch ${batchKey}: ${messages.length} messages`);
+  for (let i = 0; i < messages.length; i++) {
+    console.log(`  msg ${i}: embeds=${messages[i].message.embeds?.length}, title="${messages[i].message.embeds[0]?.data?.title}"`);
+  }
+
   const target = await messages[0].message.client.channels
     .fetch(pair.target)
     .catch(() => null);
@@ -159,6 +164,8 @@ async function flushBatch(batchKey) {
     .slice(0, BATCH_MAX_SIZE)
     .flatMap(({ message }) => message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, guild)))
     .slice(0, 10);
+
+  console.log(`[kovari] flushBatch ${batchKey}: sending ${allEmbeds.length} embeds in one message`);
 
   const collectionName = getCollectionKey(messages[0].message.embeds[0]);
   const header = `**${messages.length} ${collectionName} alerts** — combined`;
