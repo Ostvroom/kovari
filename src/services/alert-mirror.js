@@ -97,14 +97,15 @@ export async function tryMirrorAlert(message) {
   const guild = target.guild ?? message.guild;
   const embeds = message.embeds.slice(0, 10).map((e) => rebrandEmbed(e, guild));
   const content = message.content?.trim() || null;
-  const ping = config.alertMirrorPingRoleId ? `<@&${config.alertMirrorPingRoleId}>` : null;
+  const pingRoleId = pair.roleId || config.alertMirrorPingRoleId || null;
+  const ping = pingRoleId ? `<@&${pingRoleId}>` : null;
 
   try {
     await target.send({
       content: [ping, content].filter(Boolean).join("\n") || undefined,
       embeds,
-      allowedMentions: config.alertMirrorPingRoleId
-        ? { roles: [config.alertMirrorPingRoleId] }
+      allowedMentions: pingRoleId
+        ? { roles: [pingRoleId] }
         : { parse: [] },
     });
     rememberSourceMessage(message.id);

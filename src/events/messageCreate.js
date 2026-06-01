@@ -3,6 +3,7 @@ import { tryMirrorAlert } from "../services/alert-mirror.js";
 import { moderateMessage } from "../services/link-moderation.js";
 import { tryAwardMessagePoints } from "../services/points.js";
 import { handleWlRequest } from "../services/wl-requests.js";
+import { checkSpam, enforceSpamAction } from "../services/anti-spam.js";
 
 export const name = "messageCreate";
 export const once = false;
@@ -14,6 +15,13 @@ function isMainGuild(guildId) {
 
 export async function execute(message) {
   try {
+    // Anti-spam first — works in all guilds
+    const spamVerdict = checkSpam(message);
+    if (spamVerdict.spam) {
+      await enforceSpamAction(message, spamVerdict);
+      return;
+    }
+
     // WL request handling works in any guild where the channel matches
     const wlHandled = await handleWlRequest(message);
     if (wlHandled) return;

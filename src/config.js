@@ -87,15 +87,20 @@ export const config = {
         .map((p) => p.trim())
         .filter(Boolean)
         .map((pair) => {
-          const [source, target] = pair.split(":");
+          const [source, target, role] = pair.split(":");
           if (!source || !target) return null;
-          return { source: source.trim(), target: target.trim() };
+          return {
+            source: source.trim(),
+            target: target.trim(),
+            roleId: role?.trim() || null,
+          };
         })
         .filter(Boolean);
     }
     const source = process.env.ALERT_MIRROR_SOURCE_CHANNEL_ID?.trim() || null;
     const target = process.env.ALERT_MIRROR_TARGET_CHANNEL_ID?.trim() || null;
-    if (source && target) return [{ source, target }];
+    const role = process.env.ALERT_MIRROR_PING_ROLE_ID?.trim() || null;
+    if (source && target) return [{ source, target, roleId: role }];
     return [];
   })(),
 };
