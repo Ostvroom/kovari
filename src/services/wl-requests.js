@@ -41,6 +41,23 @@ function extractUsernameFromUrl(url) {
   return null;
 }
 
+function formatAccountAge(joinedStr) {
+  if (!joinedStr) return "Unknown";
+  const joined = new Date(joinedStr);
+  if (isNaN(joined.getTime())) return "Unknown";
+  const now = new Date();
+  let years = now.getFullYear() - joined.getFullYear();
+  let months = now.getMonth() - joined.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years > 0) return `${years} yr${years !== 1 ? "s" : ""}${months > 0 ? ` ${months} mo` : ""}`;
+  if (months > 0) return `${months} mo`;
+  const days = Math.floor((now - joined) / (1000 * 60 * 60 * 24));
+  return `${days} day${days !== 1 ? "s" : ""}`;
+}
+
 async function fetchXProfile(username) {
   const input = username.trim().replace(/^@/, "");
   if (!input) return null;
@@ -62,6 +79,7 @@ async function fetchXProfile(username) {
       image: u.avatar ?? u.profile_image_url_https ?? u.profile_image_url ?? null,
       banner: u.banner ?? u.profile_banner_url ?? null,
       verified: u.verified || false,
+      joined: u.joined ?? u.created_at ?? null,
     };
   } catch {
     return null;
@@ -89,6 +107,7 @@ export function buildWlRequestEmbed({ user, tweetUrl, upvotes, downvotes, profil
     embed.addFields(
       { name: "Handle", value: `@${profile.username}`, inline: true },
       { name: "Followers", value: String(profile.followers).replace(/\B(?=(\d{3})+(?!\d))/g, ","), inline: true },
+      { name: "Account age", value: formatAccountAge(profile.joined), inline: true },
     );
     if (profile.description) {
       embed.addFields({ name: "Bio", value: profile.description.slice(0, 300) });
